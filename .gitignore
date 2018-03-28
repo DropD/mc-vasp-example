@@ -18,4 +18,5 @@ doc/build
 build/
 dist/
 
-*phonon\ turnkey\ solution*
+*phonon*
+*.png
