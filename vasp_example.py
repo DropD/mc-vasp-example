@@ -92,34 +92,22 @@ def cached_parameter_data(new_params):
     return result
 
 
-def create_kpoints_path(structure):
-    from aiida.tools.data.array.kpoints import get_explicit_kpoints_path
-    return get_explicit_kpoints_path(structure=structure)
-
-
 def create_structure_Si():
     structure_cls = get_data_cls('structure')
     alat = 5.4
     structure = structure_cls(cell=np.array([[.5, 0, .5], [.5, .5, 0], [0, .5, .5]]) * alat)
     structure.append_atom(position=np.array([.25, .25, .25]) * alat, symbols='Si')
-    return structure
+    return new_or_existing_structure(structure)
 
 
-def make_inputs(incar, structure, kpoints, settings, codename):
+def make_inputs(incar, structure, kpoints, settings, codename, queue_name):
     load_dbenv_if_not_loaded()
     from aiida.orm import CalculationFactory
     potcar_cls = get_data_cls('vasp.potcar')
     vasp_calc_proc = CalculationFactory('vasp.vasp').process()
     inputs = vasp_calc_proc.get_inputs_template()
 
-    if kpoints == 'path':
-        auto_kpoints = create_kpoints_path(structure)
-        kpoints = auto_kpoints['explicit_kpoints']
-        structure = new_or_existing_structure(auto_kpoints['conv_structure'])
-    else:
-        structure = new_or_existing_structure(structure)
-
-    set_std_inputs(inputs, codename)
+    set_std_inputs(inputs, codename, queue_name)
     inputs.kpoints = kpoints
     inputs.structure = structure
     inputs.potential = potcar_cls.get_potcars_from_structure(family_name='PBE', structure=inputs.structure, mapping=POTCAR_MAP)
@@ -129,21 +117,21 @@ def make_inputs(incar, structure, kpoints, settings, codename):
     return inputs
 
 
-def set_std_options(inputs):
+def set_std_options(inputs, queue_nname):
     inputs._options.max_wallclock_seconds = 180
     inputs._options.resources = {'num_machines': 1, 'num_mpiprocs_per_machine': 20}
-    inputs._options.queue_name = 'dphys_compute'
+    inputs._options.queue_name = queue_name
     inputs._options.computer = inputs.code.get_computer()
 
 
-def set_std_inputs(inputs, codename):
+def set_std_inputs(inputs, codename, queue_name):
     load_dbenv_if_not_loaded()
     from aiida.orm import Code
     inputs._label = 'Demo {}'.format(now_str())
     inputs.code = codename
     inputs._description = 'This is a Demo calculation.'
     inputs['code'] = Code.get_from_string('vasp')
-    set_std_options(inputs)
+    set_std_options(inputs, queue_name)
 
 
 def get_relaxation_kpoints(structure, distance):
