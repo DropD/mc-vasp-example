@@ -30,20 +30,21 @@ class ExampleWorkflow(WorkChain):
         spec.output('bands', valid_type=DataFactory('array.bands'))
 
     def set_defaults(self):
+        self.ctx.inputs = self.get_inputs_template()
         self.ctx.inputs.relax_ISIF = self.inputs.relax_ISIF.value or 2
 
     def run_relaxation(self):
         pass
         vasp_proc = CalculationFactory('vasp.vasp').process()
         params = vex.RELAXATION_INCAR_TEMPLATE
-        params.update({'isif': self.ctx.inputs.relax_ISIF.value})
+        params.update({'isif': self.ctx.inputs.relax_ISIF})
         inputs = vex.make_inputs(
-            codename = self.inputs.vasp_codename,
+            codename = self.inputs.vasp_codename.value,
             incar=params,
             structure=self.inputs.structure,
             kpoints=vex.get_relaxation_kpoints(structure=self.inputs.structure, distance=self.inputs.relax_kpts_dist.value),
             settings={'parser_settings': {'add_structure': True, 'add_chgcar': True, 'add_wavecar': True}},
-            queue_name=self.innputs.queue_name
+            queue_name=self.inputs.queue_name.value
         )
         result = submit(vasp_proc, **inputs)
         return ToContext(relax_run=result)
