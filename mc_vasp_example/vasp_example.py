@@ -68,10 +68,11 @@ BANDS_INCAR_TEMPLATE = {
 
 POTCAR_MAP = {
     'Si': 'Si',
-    'Ga': 'Ga',
+    'Ga': 'Ga_d',
     'C': 'C_d',
     'Co': 'Co',
-    'As': 'As'
+    'As': 'As_d',
+    'Al': 'Al'
 }
 
 
@@ -100,14 +101,14 @@ def create_structure_Si():
     return new_or_existing_structure(structure)
 
 
-def make_inputs(incar, structure, kpoints, settings, codename, queue_name):
+def make_inputs(incar, structure, kpoints, settings, codename, queue_name, num_procs):
     load_dbenv_if_not_loaded()
     from aiida.orm import CalculationFactory, DataFactory
     potcar_cls = get_data_cls('vasp.potcar')
     vasp_calc_proc = CalculationFactory('vasp.vasp').process()
     inputs = vasp_calc_proc.get_inputs_template()
 
-    set_std_inputs(inputs, codename, queue_name)
+    set_std_inputs(inputs, codename, queue_name, num_procs)
     inputs.kpoints = kpoints
     inputs.structure = structure
     inputs.potential = potcar_cls.get_potcars_from_structure(family_name='PBE', structure=inputs.structure, mapping=POTCAR_MAP)
@@ -117,21 +118,21 @@ def make_inputs(incar, structure, kpoints, settings, codename, queue_name):
     return inputs
 
 
-def set_std_options(inputs, queue_name):
+def set_std_options(inputs, queue_name, num_procs):
     inputs._options.max_wallclock_seconds = 180
-    inputs._options.resources = {'num_machines': 1, 'num_mpiprocs_per_machine': 20}
+    inputs._options.resources = {'num_machines': 1, 'num_mpiprocs_per_machine': num_procs}
     inputs._options.queue_name = queue_name
     inputs._options.computer = inputs.code.get_computer()
 
 
-def set_std_inputs(inputs, codename, queue_name):
+def set_std_inputs(inputs, codename, queue_name, num_procs):
     load_dbenv_if_not_loaded()
     from aiida.orm import Code
     inputs._label = 'Demo {}'.format(now_str())
     inputs.code = codename
     inputs._description = 'This is a Demo calculation.'
     inputs['code'] = Code.get_from_string(codename)
-    set_std_options(inputs, queue_name)
+    set_std_options(inputs, queue_name, num_procs)
 
 
 def get_relaxation_kpoints(structure, distance):

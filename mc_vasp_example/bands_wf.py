@@ -21,6 +21,8 @@ class ExampleWorkflow(WorkChain):
         spec.input('relax_kpts_dist', valid_type=Float)
         spec.input('vasp_codename', valid_type=Str)
         spec.input('queue_name', valid_type=Str)
+        spec.input('num_procs', valid_type=Int)
+        spec.input('max_walltime', valid_type=Int)
         spec.outline(
             cls.set_defaults,
             cls.run_relaxation,
@@ -43,27 +45,36 @@ class ExampleWorkflow(WorkChain):
             incar=params,
             structure=self.inputs.structure,
             kpoints=vex.get_relaxation_kpoints(structure=self.inputs.structure, distance=self.inputs.relax_kpts_dist.value),
-            settings={'parser_settings': {'add_structure': True, 'add_chgcar': True, 'add_wavecar': True}},
-            queue_name=self.inputs.queue_name.value
+            settings={
+                'parser_settings': {
+                    'add_structure': True, 'add_chgcar': True, 'add_wavecar': True
+                },
+                'ADDITIONAL_RETRIEVE_LIST': ['WAVECAR', 'CHGCAR'],
+            },
+            queue_name=self.inputs.queue_name.value,
+            num_procs=self.inputs.num_procs.value
         )
+        inputs._options.max_wallclock_seconds = self.inputs.max_walltime.value
         result = submit(vasp_proc, **inputs)
         return ToContext(relax_run=result)
 
     def run_bands(self):
         vasp_proc = CalculationFactory('vasp.vasp').process()
         params = vex.BANDS_INCAR_TEMPLATE
-        params.update({'istart': 2 if self.ctx.inputs.relax_ISIF > 2 else 1})
+        # ~ params.update({'istart': 2 if self.ctx.inputs.relax_ISIF > 2 else 1})
         path_out = seekpath(self.ctx.relax_run.out.output_structure)
         inputs = vex.make_inputs(
-            codename = self.inputs.vasp_codename,
+            codename = self.inputs.vasp_codename.value,
             incar=vex.BANDS_INCAR_TEMPLATE,
             structure=path_out['primitive_structure'],
             kpoints=path_out['explicit_kpoints'],
             settings={'parser_settings': {'add_bands': True, 'add_dos': True}},
-            queue_name=self.innputs.queue_name
+            queue_name=self.inputs.queue_name.value,
+            num_procs=self.inputs.num_procs.value
         )
-        inputs.wavefunctions = self.ctx.relax_run.out.wavecar
-        inputs.charge_density = self.ctx.relax_run.out.chgcar
+        inputs._options.max_wallclock_seconds = self.inputs.max_walltime.value
+        # ~ inputs.wavefunctions = self.ctx.relax_run.out.wavecar
+        # ~ inputs.charge_density = self.ctx.relax_run.out.chgcar
         result = submit(vasp_proc, **inputs)
         return ToContext(bands_run=result)
 
