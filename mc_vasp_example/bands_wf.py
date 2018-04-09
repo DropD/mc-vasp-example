@@ -26,6 +26,8 @@ class ExampleWorkflow(WorkChain):
         spec.outline(
             cls.set_defaults,
             cls.run_relaxation,
+            cls.run_seekpath,
+            cls.run_scf,
             cls.run_bands,
             cls.get_bands
         )
@@ -36,7 +38,6 @@ class ExampleWorkflow(WorkChain):
         self.ctx.inputs.relax_ISIF = self.inputs.relax_ISIF.value or 2
 
     def run_relaxation(self):
-        pass
         vasp_proc = CalculationFactory('vasp.vasp').process()
         params = vex.RELAXATION_INCAR_TEMPLATE
         params.update({'isif': self.ctx.inputs.relax_ISIF})
@@ -47,7 +48,32 @@ class ExampleWorkflow(WorkChain):
             kpoints=vex.get_relaxation_kpoints(structure=self.inputs.structure, distance=self.inputs.relax_kpts_dist.value),
             settings={
                 'parser_settings': {
-                    'add_structure': True, 'add_chgcar': True, 'add_wavecar': True
+                    'add_structure': True
+                }
+            },
+            queue_name=self.inputs.queue_name.value,
+            num_procs=self.inputs.num_procs.value
+        )
+        inputs._options.max_wallclock_seconds = self.inputs.max_walltime.value
+        result = submit(vasp_proc, **inputs)
+        return ToContext(relax_run=result)
+    
+    def run_seekpath(self):
+        path_out = seekpath(self.ctx.relax_run.out.output_structure)
+        self.ctx.relaxed_structure = path_out['primitive_structure']
+        self.ctx.kpoints_path = path_out['explicit_kpoints']
+
+    def run_scf(self):
+        vasp_proc = CalculationFactory('vasp.vasp').process()
+        params = vex.SCF_INCAR_TEMPLATE
+        inputs = vex.make_inputs(
+            codename = self.inputs.vasp_codename.value,
+            incar=params,
+            structure= self.ctx.relaxed_structure,
+            kpoints=vex.get_relaxation_kpoints(structure=self.inputs.structure, distance=self.inputs.relax_kpts_dist.value),
+            settings={
+                'parser_settings': {
+                    'add_structure': True, 'add_chgcar': True
                 },
                 'ADDITIONAL_RETRIEVE_LIST': ['WAVECAR', 'CHGCAR'],
             },
@@ -56,25 +82,23 @@ class ExampleWorkflow(WorkChain):
         )
         inputs._options.max_wallclock_seconds = self.inputs.max_walltime.value
         result = submit(vasp_proc, **inputs)
-        return ToContext(relax_run=result)
+        return ToContext(scf_run=result)
 
     def run_bands(self):
         vasp_proc = CalculationFactory('vasp.vasp').process()
         params = vex.BANDS_INCAR_TEMPLATE
-        # ~ params.update({'istart': 2 if self.ctx.inputs.relax_ISIF > 2 else 1})
-        path_out = seekpath(self.ctx.relax_run.out.output_structure)
+        params.update({'icharg': 11})
         inputs = vex.make_inputs(
             codename = self.inputs.vasp_codename.value,
-            incar=vex.BANDS_INCAR_TEMPLATE,
-            structure=path_out['primitive_structure'],
-            kpoints=path_out['explicit_kpoints'],
+            incar=params,
+            structure=self.ctx.relaxed_structure,
+            kpoints=self.ctx.kpoints_path,
             settings={'parser_settings': {'add_bands': True, 'add_dos': True}},
             queue_name=self.inputs.queue_name.value,
             num_procs=self.inputs.num_procs.value
         )
         inputs._options.max_wallclock_seconds = self.inputs.max_walltime.value
-        # ~ inputs.wavefunctions = self.ctx.relax_run.out.wavecar
-        # ~ inputs.charge_density = self.ctx.relax_run.out.chgcar
+        inputs.charge_density = self.ctx.scf_run.out.chgcar
         result = submit(vasp_proc, **inputs)
         return ToContext(bands_run=result)
 

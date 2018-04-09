@@ -56,14 +56,21 @@ RELAXATION_INCAR_TEMPLATE = {
     "isif": 4
 }
 
+SCF_INCAR_TEMPLATE = {
+    'encut': 500,
+    'ismear': 0,
+    'sigma': 0.1
+}
+
 BANDS_INCAR_TEMPLATE = {
     'prec': 'NORMAL',
-    'encut': 200,
+    'encut': 500,
     'ediff': 1e-8,
     'ialgo': 38,
     'ismear': 0,
     'nsw': 0,
-    'sigma': 0.1
+    'sigma': 0.1,
+    'lorbit': 11
 }
 
 POTCAR_MAP = {
