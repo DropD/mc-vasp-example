@@ -1,0 +1,4 @@
+{
+    "title": "AiiDA-VASP Demo",
+    "description": "Compute a band structure using the AiiDA-VASP plugin"
+}

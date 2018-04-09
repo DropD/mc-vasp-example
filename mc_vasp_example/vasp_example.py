@@ -69,7 +69,7 @@ BANDS_INCAR_TEMPLATE = {
 POTCAR_MAP = {
     'Si': 'Si',
     'Ga': 'Ga_d',
-    'C': 'C_d',
+    'C': 'C',
     'Co': 'Co',
     'As': 'As_d',
     'Al': 'Al'

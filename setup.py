@@ -6,10 +6,10 @@ if __name__ == '__main__':
         name='mc-vasp-example',
         version='0.1',
         packages=find_packages(),
-        install_requires=[
-            'aiida',
-            'aiida-vasp'
-        ],
+        #install_requires=[
+        #    'aiida',
+        #    'aiida-vasp'
+        #],
         reentry_register=True,
         entry_points={
             'aiida.workflows': [
